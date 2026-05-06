@@ -1,0 +1,163 @@
+clear; clc; close all;
+
+%% ========================= 1. Load Image =================================
+img = im2double(imread('cameraman.tif'));
+fprintf('Image size: %d x %d\n', size(img,1), size(img,2));
+
+%% ========================= 2. Traditional Gaussian Blur ==================
+sigma_fixed = 3;
+img_gaussian_fixed = imgaussfilt(img, sigma_fixed);
+fprintf('Traditional Gaussian blur, sigma = %.1f\n', sigma_fixed);
+
+%% ========================= 3. Adaptive Gaussian Blur =====================
+sigma_max = 5;      % Maximum sigma (flat areas get strong blur)
+alpha = 10;         % Edge sensitivity (higher = sharper edges)
+window_size = 15;
+
+% Compute gradient (find edges)
+[Gx, Gy] = gradient(img);
+grad_mag = sqrt(Gx.^2 + Gy.^2);
+grad_mag = imgaussfilt(grad_mag, 1);
+grad_norm = grad_mag / max(grad_mag(:));
+
+% Core formula: gradient -> sigma
+sigma_map = sigma_max ./ (1 + alpha * grad_norm);
+sigma_map = max(sigma_map, 0.5);
+sigma_map = min(sigma_map, sigma_max);
+
+% Apply adaptive blur
+img_adaptive = adaptive_gaussian_blur(img, sigma_map, window_size);
+fprintf('Adaptive Gaussian blur completed\n');
+
+%% ========================= 4. Display Results ============================
+figure('Name', 'Background Blur Effect Comparison', ...
+       'Position', [50, 50, 1400, 800], ...
+       'Color', [0.95, 0.95, 0.95]);
+
+% Subplot 1: Original
+subplot(2,3,1);
+imshow(img);
+title('(1) Original Image', 'FontSize', 12, 'FontWeight', 'bold');
+xlabel('Sharp edges + detailed texture', 'FontSize', 9);
+
+% Subplot 2: Gradient Map
+subplot(2,3,2);
+imagesc(grad_norm);
+colormap(gray);
+colorbar;
+title('(2) Gradient Map', 'FontSize', 12, 'FontWeight', 'bold');
+xlabel('WHITE = Edge (will be preserved) | BLACK = Flat (will be blurred)', 'FontSize', 8);
+axis off;
+
+% Subplot 3: Sigma Map
+subplot(2,3,3);
+imagesc(sigma_map);
+colormap(gray);
+colorbar;
+title('(3) Sigma Distribution Map', 'FontSize', 12, 'FontWeight', 'bold');
+xlabel('WHITE = Large sigma (Strong blur) | BLACK = Small sigma (Preserved)', 'FontSize', 8);
+axis off;
+hold on;
+text(130, 20, 'WHITE: Sky (Flat -> Strong blur)', 'Color', 'white', 'FontSize', 8, ...
+     'FontWeight', 'bold', 'BackgroundColor', [0.3,0.3,0.3]);
+text(200, 220, 'BLACK: Person (Edge -> Preserved)', 'Color', 'black', 'FontSize', 8, ...
+     'FontWeight', 'bold', 'BackgroundColor', [0.9,0.9,0.9]);
+hold off;
+
+% Subplot 4: Traditional Gaussian (Fixed sigma)
+subplot(2,3,4);
+imshow(img_gaussian_fixed);
+title('(4) Traditional Gaussian Blur', 'FontSize', 12, 'FontWeight', 'bold');
+xlabel(sprintf('Fixed sigma = %.1f (Edge also blurred)', sigma_fixed), 'FontSize', 9, 'Color', [0.7,0.2,0.2]);
+
+% Subplot 5: Adaptive Gaussian
+subplot(2,3,5);
+imshow(img_adaptive);
+title('(5) Adaptive Gaussian Blur', 'FontSize', 12, 'FontWeight', 'bold', 'Color', [0.2,0.5,0.2]);
+xlabel('Edge preserved | Flat area (sky) blurred', 'FontSize', 9, 'Color', [0.2,0.5,0.2]);
+
+% Subplot 6: Difference map (Adaptive vs Traditional)
+subplot(2,3,6);
+diff_img = abs(img_adaptive - img_gaussian_fixed);
+imshow(diff_img, []);
+colormap(gca, 'hot');
+colorbar;
+title('(6) Difference Map', 'FontSize', 12, 'FontWeight', 'bold');
+xlabel('Bright = Large difference (edges: adaptive preserves, traditional blurs)', 'FontSize', 8);
+
+sgtitle('Adaptive vs Traditional Gaussian Blur: Background Blur Effect', 'FontSize', 14, 'FontWeight', 'bold');
+
+%% ========================= 5. Zoom-in Comparison =========================
+figure('Name', 'Zoom-in: Edge Preservation', ...
+       'Position', [150, 150, 1000, 600], ...
+       'Color', [0.95, 0.95, 0.95]);
+
+% Select edge region (person's contour)
+zoom_rows = 120:200;
+zoom_cols = 100:180;
+
+subplot(2,2,1);
+imshow(img(zoom_rows, zoom_cols));
+title('(a) Original (Zoom)', 'FontSize', 11, 'FontWeight', 'bold');
+
+subplot(2,2,2);
+imshow(img_gaussian_fixed(zoom_rows, zoom_cols));
+title('(b) Traditional Gaussian (Zoom)', 'FontSize', 11, 'FontWeight', 'bold', 'Color', [0.7,0.2,0.2]);
+xlabel('Edge is blurred!', 'FontSize', 10, 'Color', [0.7,0.2,0.2]);
+
+subplot(2,2,3);
+imshow(img_adaptive(zoom_rows, zoom_cols));
+title('(c) Adaptive Gaussian (Zoom)', 'FontSize', 11, 'FontWeight', 'bold', 'Color', [0.2,0.5,0.2]);
+xlabel('Edge remains sharp!', 'FontSize', 10, 'Color', [0.2,0.5,0.2]);
+
+subplot(2,2,4);
+imshow(sigma_map(zoom_rows, zoom_cols));
+colormap(gca, 'gray');
+colorbar;
+title('(d) Sigma Map (Zoom)', 'FontSize', 11, 'FontWeight', 'bold');
+xlabel('Black area = Small sigma (Edge preserved)', 'FontSize', 9);
+
+sgtitle('Edge Preservation Comparison (Person Contour)', 'FontSize', 13, 'FontWeight', 'bold');
+
+%% ========================= 6. Adaptive Gaussian Function =================
+function img_out = adaptive_gaussian_blur(img, sigma_map, window_size)
+    [rows, cols] = size(img);
+    half_win = floor(window_size/2);
+    
+    img_padded = padarray(img, [half_win, half_win], 'replicate');
+    sigma_padded = padarray(sigma_map, [half_win, half_win], 'replicate');
+    
+    img_out = zeros(rows, cols);
+    
+    for i = 1:rows
+        for j = 1:cols
+            sigma_local = sigma_padded(i + half_win, j + half_win);
+            
+            if sigma_local > 0.5
+                kernel_size = max(3, 2*ceil(2*sigma_local) + 1);
+                kernel_size = min(kernel_size, window_size);
+                kernel = fspecial('gaussian', kernel_size, sigma_local);
+                
+                offset = floor(kernel_size/2);
+                r_start = i + half_win - offset;
+                r_end = i + half_win + offset;
+                c_start = j + half_win - offset;
+                c_end = j + half_win + offset;
+                
+                window = img_padded(r_start:r_end, c_start:c_end);
+                img_out(i,j) = sum(sum(kernel .* window));
+            else
+                img_out(i,j) = img(i,j);
+            end
+        end
+    end
+end
+
+%% ========================= 7. Statistics ==================================
+fprintf('\n========== Sigma Map Statistics ==========\n');
+fprintf('Minimum sigma: %.2f (Edge areas - preserved)\n', min(sigma_map(:)));
+fprintf('Maximum sigma: %.2f (Flat areas - strongly blurred)\n', max(sigma_map(:)));
+fprintf('Mean sigma:    %.2f\n', mean(sigma_map(:)));
+fprintf('==========================================\n');
+
+fprintf('\n========== Comparison Complete ==========\n');    
