@@ -1,0 +1,31 @@
+ %%too small
+clear; clc; close all;
+
+img = im2double(imread('cameraman.tif'));
+
+sigma_values = [0.1, 0.3, 0.5, 1, 2];
+sigma_names = {'σ = 0.1 (too small)', 'σ = 0.3 (too small)', 'σ = 0.5 ', 'σ = 1 (normal)', 'σ = 2 (normal)'};
+
+figure('Position', [100, 100, 1400, 900]);
+
+subplot(2,3,1);
+imshow(img);
+title('Original image', 'FontSize', 14, 'FontWeight', 'bold');
+
+for i = 1:5
+    sigma = sigma_values(i);
+    blurred = imgaussfilt(img, sigma);
+    
+    subplot(2,3,i+1);
+    imshow(blurred);
+    title(sigma_names{i}, 'FontSize', 12);
+    
+    hold on;
+    if sigma < 0.5
+        rectangle('Position', [130, 80, 80, 100], 'EdgeColor', 'r', 'LineWidth', 2);
+        rectangle('Position', [180, 180, 60, 60], 'EdgeColor', 'r', 'LineWidth', 2);
+    end
+    hold off;
+end
+
+sgtitle('sigma too small', 'FontSize', 16, 'FontWeight', 'bold');  
