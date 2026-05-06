@@ -1,0 +1,13 @@
+%%to big
+clear; clc; close all;
+img = im2double(imread('cameraman.tif'));
+sigma_values = [3, 10, 20, 50];
+figure('Position', [100, 100, 1200, 800]);
+for i = 1:4
+    sigma = sigma_values(i);
+    blurred = imgaussfilt(img, sigma);    
+    subplot(2,2,i);
+    imshow(blurred);
+    title(['sigma = ', num2str(sigma)], 'FontSize', 12);
+end
+sgtitle('too big', 'FontSize', 14);    
