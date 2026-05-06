@@ -1,0 +1,30 @@
+clear; close all; clc;
+
+% Load image
+img = im2double(imread('cameraman.tif'));
+[h, w] = size(img);
+
+% 3x3 Gaussian kernel (sigma=1.5, normalized)
+kernel = [1, 1.25, 1; 1.25, 1.5, 1.25; 1, 1.25, 1] / 10.5;
+
+% Pad image
+padded = zeros(h+2, w+2);
+padded(2:end-1, 2:end-1) = img;
+padded(1, :) = padded(2, :);
+padded(end, :) = padded(end-1, :);
+padded(:, 1) = padded(:, 2);
+padded(:, end) = padded(:, end-1);
+
+% Convolution
+output = zeros(h, w);
+for i = 1:h
+    for j = 1:w
+        window = padded(i:i+2, j:j+2);
+        output(i, j) = sum(window(:) .* kernel(:));
+    end
+end
+
+% Show results
+figure;
+subplot(1,2,1); imshow(img); title('Original');
+subplot(1,2,2); imshow(output); title('Gaussian Blurred');
