@@ -1,0 +1,31 @@
+clear; clc; close all;
+
+% Load image
+img = im2double(imread('cameraman.tif'));
+
+% Parameters
+sigma_max = 5;
+alpha = 10;
+
+% Compute gradient
+[Gx, Gy] = gradient(img);
+grad_norm = sqrt(Gx.^2 + Gy.^2);
+grad_norm = grad_norm / max(grad_norm(:));
+grad_norm = imgaussfilt(grad_norm, 1);
+
+% Generate sigma map
+sigma_map = sigma_max ./ (1 + alpha * grad_norm);
+sigma_map = max(sigma_map, 0.5);
+sigma_map = min(sigma_map, sigma_max);
+
+% Display
+figure;
+imagesc(sigma_map);
+colormap(gray);
+colorbar;
+title('Sigma Distribution Map');
+axis off;
+
+% Print statistics
+fprintf('Sigma range: [%.2f, %.2f], Mean: %.2f\n', ...
+        min(sigma_map(:)), max(sigma_map(:)), mean(sigma_map(:)));
