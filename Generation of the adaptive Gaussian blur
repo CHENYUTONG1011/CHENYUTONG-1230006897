@@ -1,0 +1,77 @@
+%% Script version (run directly in command line)
+clear; clc; close all;
+
+% Load image
+img = im2double(imread('cameraman.tif'));
+
+% Parameter settings
+sigma_max = 5;
+alpha = 10;
+window_size = 15;
+
+% ========== Adaptive Gaussian Blur Implementation ==========
+
+% Step 1: Compute gradient map
+[Gx, Gy] = gradient(img);
+grad_mag = sqrt(Gx.^2 + Gy.^2);
+
+% Step 2: Smooth gradient (avoid noise interference)
+grad_mag = imgaussfilt(grad_mag, 1);
+
+% Step 3: Normalize gradient to [0,1]
+grad_max = max(grad_mag(:));
+if grad_max > 0
+    grad_norm = grad_mag / grad_max;
+else
+    grad_norm = zeros(size(grad_mag));
+end
+
+% Step 4: Compute adaptive sigma map
+sigma_map = sigma_max ./ (1 + alpha * grad_norm);
+
+% Step 5: Clip sigma range
+sigma_map = max(sigma_map, 0.5);
+sigma_map = min(sigma_map, sigma_max);
+
+% Step 6: Apply different sigma Gaussian blur to each pixel
+img_out = zeros(size(img));
+[rows, cols] = size(img);
+half_win = floor(window_size/2);
+
+img_padded = padarray(img, [half_win, half_win], 'replicate');
+sigma_padded = padarray(sigma_map, [half_win, half_win], 'replicate');
+
+for i = 1:rows
+    for j = 1:cols
+        sigma_local = sigma_padded(i + half_win, j + half_win);
+        
+        if sigma_local > 0.5
+            kernel_size = max(3, 2*ceil(2*sigma_local) + 1);
+            kernel_size = min(kernel_size, window_size);
+            
+            kernel = fspecial('gaussian', kernel_size, sigma_local);
+            
+            offset = floor(kernel_size/2);
+            r_start = i + half_win - offset;
+            r_end = i + half_win + offset;
+            c_start = j + half_win - offset;
+            c_end = j + half_win + offset;
+            
+            window = img_padded(r_start:r_end, c_start:c_end);
+            
+            img_out(i, j) = sum(sum(kernel .* window));
+        else
+            img_out(i, j) = img(i, j);
+        end
+    end
+end
+
+% ========== Display results ==========
+figure;
+subplot(1,2,1);
+imshow(img);
+title('Original Image');
+
+subplot(1,2,2);
+imshow(img_out);
+title('Adaptive Gaussian Blur');   
